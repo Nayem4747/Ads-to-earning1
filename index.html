@@ -1,0 +1,178 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ads To Earning Money</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {font-family: Arial, sans-serif; margin:0; background:#f7f7f7;}
+.header {background:#4A90E2; color:#fff; padding:20px; text-align:center;}
+.profile-card {background:#fff; margin:20px; padding:20px; border-radius:10px; text-align:center;}
+.points-display {margin:10px 0; font-weight:bold; color:#4A90E2;}
+.task-card {background:#fff; padding:20px; border-radius:10px; margin:20px;}
+.btn {padding:10px; border:none; border-radius:5px; cursor:pointer; width:100%;}
+.btn-primary {background:#4A90E2; color:#fff;}
+.status-message {margin-top:10px; font-size:14px;}
+.success-message {color:green;}
+.error-message {color:red;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body>
+<div class="header"><h1>ADS TO EARNING MONEY</h1><h2>Developer By NAYEM</h2></div>
+
+<div class="profile-card">
+<h2 id="profileNameDisplay">Please Login with Telegram 👇</h2>
+<div class="points-display" id="userPointsDisplay">0 Points</div>
+<p>Ads Watched Today: <span id="adsWatchedToday">0</span> / <span id="adsLimit">0</span></p>
+<p>Referral Code: <b id="referralCode"></b></p>
+
+<script async src="https://telegram.org/js/telegram-widget.js?22" 
+        data-telegram-login="@adstoearning5_bot" 
+        data-size="large" 
+        data-onauth="onTelegramAuth(user)" 
+        data-request-access="write">
+</script>
+</div>
+
+<div class="task-card">
+<h2>📺 Watch Ads</h2>
+<p>Watch ads and earn points.</p>
+<button class="btn btn-primary" onclick="watchAd()">👉 Watch Ad</button>
+</div>
+
+<div class="task-card">
+<h2>👥 Referral</h2>
+<p>Share your referral link with friends. When they join, you get bonus points!</p>
+<input type="text" id="referralLink" readonly style="width:100%;padding:8px;">
+<button class="btn btn-primary" onclick="copyReferral()">Copy Referral Link</button>
+</div>
+
+<div class="task-card">
+<h2>💳 Withdraw</h2>
+<p id="withdrawRule">Loading...</p>
+<label>Amount (Points)</label><input type="number" id="withdrawAmount" style="width:100%;padding:8px;margin:5px 0;">
+<label>Payment Method</label><select id="withdrawMethod" style="width:100%;padding:8px;margin:5px 0;">
+<option value="">Select</option><option value="Bkash">Bkash</option><option value="Nagad">Nagad</option>
+</select>
+<label>Account Number</label>
+<input type="text" id="withdrawAccount" style="width:100%;padding:8px;margin:5px 0;">
+<button class="btn btn-primary" onclick="submitWithdraw()">Submit Withdraw</button>
+<p class="status-message" id="withdrawMsg"></p>
+</div>
+
+<!-- ✅ Monetag SDK -->
+<script src='//libtl.com/sdk.js' data-zone='9910797' data-sdk='show_9910797'></script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyCkZqzpvcHDvOwl1diAsr-8mxG5dc1PYIA",
+    authDomain: "ads-to-earning-63fe7.firebaseapp.com",
+    databaseURL: "https://ads-to-earning-63fe7-default-rtdb.firebaseio.com",
+    projectId: "ads-to-earning-63fe7",
+    storageBucket: "ads-to-earning-63fe7.firebasestorage.app",
+    messagingSenderId: "417316232204",
+    appId: "1:417316232204:web:5923011da939982f1ce229",
+    measurementId: "G-GJKMQC6RBK"
+};
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.database();
+const BOT_TOKEN = "8463094943:AAEeeVn7I-4W3_HyH35NEMVBqGgllXRH1-U";
+const CHAT_ID = "7647567527";
+
+function sendTelegram(msg){
+fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({chat_id:CHAT_ID,text:msg})
+});}
+
+let settings={}, currentUser={id:"",name:"",telegramName:"",points:0,adsWatchedToday:0,referralCode:""};
+
+db.ref("settings").once("value").then(snap=>{if(snap.exists())settings=snap.val();});
+
+function onTelegramAuth(user){
+currentUser.id=user.id;
+currentUser.name=user.first_name+(user.last_name?" "+user.last_name:"");
+currentUser.telegramName=user.username||"NoUsername";
+currentUser.referralCode=user.id;
+
+db.ref("users/"+user.id).once("value").then(snap=>{
+if(snap.exists()){currentUser=snap.val();}
+else{
+const urlParams = new URLSearchParams(window.location.search);
+const refCode = urlParams.get("ref");
+if(refCode && refCode != user.id){db.ref("users/"+refCode+"/points").transaction(p=>(p||0)+(settings.REFERRAL_BONUS||50));}
+db.ref("users/"+user.id).set(currentUser);
+}
+updateUI();
+});
+}
+
+function updateUI(){
+document.getElementById("profileNameDisplay").innerText = currentUser.name+" (@"+currentUser.telegramName+")";
+document.getElementById("userPointsDisplay").innerText = currentUser.points+" Points";
+document.getElementById("adsWatchedToday").innerText = currentUser.adsWatchedToday;
+document.getElementById("adsLimit").innerText = settings.ADS_PER_DAY_LIMIT || 5;
+document.getElementById("referralCode").innerText = currentUser.referralCode;
+document.getElementById("referralLink").value = window.location.origin+"?ref="+currentUser.referralCode;
+document.getElementById("withdrawRule").innerText = (settings.WITHDRAW_MIN_POINTS || 100)+" Points = 50 Taka";
+}
+
+function watchAd(){
+if(!currentUser.id){alert("⚠️ Login with Telegram first!"); return;}
+if(currentUser.adsWatchedToday >= (settings.ADS_PER_DAY_LIMIT || 5)){alert("Daily ads limit reached!"); return;}
+if(typeof show_9910797==="function"){
+show_9910797();
+setTimeout(()=>{
+currentUser.points += (settings.POINTS_PER_AD || 10);
+currentUser.adsWatchedToday++;
+db.ref("users/"+currentUser.id).set(currentUser);
+updateUI();
+alert("+"+(settings.POINTS_PER_AD||10)+" Points Added!");
+},15000);
+}else alert("⚠️ Ad not loaded yet!");
+}
+
+function copyReferral(){
+if(!currentUser.id){alert("⚠️ Login first!"); return;}
+const input = document.getElementById("referralLink");
+input.select(); document.execCommand("copy");
+alert("Referral link copied!");
+}
+
+function submitWithdraw(){
+if(!currentUser.id){alert("⚠️ Login first!"); return;}
+const amount = parseInt(document.getElementById("withdrawAmount").value);
+const method = document.getElementById("withdrawMethod").value;
+const account = document.getElementById("withdrawAccount").value.trim();
+const msg = document.getElementById("withdrawMsg");
+
+if(!amount || amount>currentUser.points || amount<(settings.WITHDRAW_MIN_POINTS||100) || !method || !account){
+msg.innerText="❌ Invalid Request";
+msg.className="status-message error-message";
+return;
+}
+
+currentUser.points -= amount;
+db.ref("users/"+currentUser.id).set(currentUser);
+updateUI();
+
+const withdrawData = {user: currentUser.id, amount, method, account, date: new Date().toLocaleString(), status:"pending"};
+db.ref("withdraws").push(withdrawData);
+
+sendTelegram(`💸 New Withdraw Request
+👤 User: ${currentUser.name}
+💰 Amount: ${amount} Points
+📱 Method: ${method}
+🔢 Account: ${account}`);
+
+msg.innerText = "✅ Withdraw Submitted!";
+msg.className = "status-message success-message";
+}
+</script>
+</body>
+</html>
